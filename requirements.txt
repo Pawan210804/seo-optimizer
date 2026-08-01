@@ -1,0 +1,9 @@
+requests
+beautifulsoup4
+flask
+flask-cors
+textstat
+python-dotenv
+spacy
+sentence-transformers
+google-genai
