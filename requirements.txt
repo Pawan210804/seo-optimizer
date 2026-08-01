@@ -7,3 +7,4 @@ python-dotenv
 spacy
 sentence-transformers
 google-genai
+gunicorn
