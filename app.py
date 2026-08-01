@@ -10,9 +10,12 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import requests
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from extractor import extract_content, extract_from_url
 from rules import run_all_checks
+import semantic
 from semantic import check_semantic_coverage
 from scoring import score_report
 from keywords import suggest_keywords
@@ -21,6 +24,14 @@ from openrouter_seo import get_seo_recommendations as get_seo_recommendations_op
 from local_recommendations import get_local_recommendations
 
 app = Flask(__name__)
+
+# Pre-load the sentence-transformers model (used by the semantic
+# coverage check whenever a keyword is supplied) in the background as
+# soon as the app starts, instead of leaving it to load lazily on
+# whoever's first keyworded request happens to land after a deploy or
+# a cold start. Runs in a thread so it never delays the app from
+# binding its port and coming up.
+threading.Thread(target=semantic.warm_up, daemon=True).start()
 
 # Without this, a frontend served from a different origin (a local HTML
 # file, a different port, etc.) will have its requests blocked by the
@@ -71,11 +82,26 @@ def analyze():
 
     checks = run_all_checks(content, keyword)
 
-    # The semantic check calls Azure over the network, so it's kept
-    # separate from the other checks. If Azure isn't configured or the
-    # call fails, this still returns a safe "skipped" result instead
-    # of raising an error - the rest of the report is not affected.
-    checks.append(check_semantic_coverage(content, keyword))
+    # The semantic check (Azure/spaCy/similarity), the Gemini call, and
+    # the OpenRouter call are all independent, network/CPU-bound work
+    # that don't depend on each other's results. Run them concurrently
+    # in a small thread pool instead of one after another - each of
+    # these can individually take several seconds, and running them in
+    # sequence meant every request paid the SUM of all three delays.
+    # Running them in parallel means it only pays whichever one is
+    # slowest, which is the single biggest lever for cutting response
+    # time on this endpoint.
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        semantic_future = pool.submit(check_semantic_coverage, content, keyword)
+        gemini_future = pool.submit(get_seo_recommendations, content, keyword)
+        openrouter_future = pool.submit(get_seo_recommendations_openrouter, content, keyword)
+
+        # The semantic check's own result becomes one of the rule
+        # checks, same as before - just fetched concurrently now
+        # rather than blocking the other two calls while it runs.
+        checks.append(semantic_future.result())
+        gemini_result = gemini_future.result()
+        openrouter_result = openrouter_future.result()
 
     report = score_report(checks)
 
@@ -98,8 +124,8 @@ def analyze():
     #                   source of recommendations even with zero API keys.
     report["ai_recommendations"] = {
         "sources": {
-            "gemini": get_seo_recommendations(content, keyword),
-            "openrouter": get_seo_recommendations_openrouter(content, keyword),
+            "gemini": gemini_result,
+            "openrouter": openrouter_result,
             "local": get_local_recommendations(content, checks, report["keyword_suggestions"], keyword),
         }
     }
