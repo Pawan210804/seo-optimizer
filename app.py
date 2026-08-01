@@ -7,7 +7,7 @@
 #     python app.py
 # Then send it requests at http://localhost:8000/analyze
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import requests
 
@@ -30,6 +30,16 @@ CORS(app)
 
 @app.route("/")
 def home():
+    # Serves the dashboard itself, so visiting the deployed URL in a
+    # browser shows the UI instead of a bare JSON status blob.
+    return send_from_directory(".", "seo-dashboard.html")
+
+
+@app.route("/api/status")
+def api_status():
+    # The old "/" JSON health check, moved here so it's still available
+    # for uptime monitors / quick checks without colliding with the
+    # dashboard route above.
     return jsonify({"status": "ok", "message": "SEO analysis API is running. POST to /analyze to use it."})
 
 
