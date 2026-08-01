@@ -31,7 +31,7 @@ app = Flask(__name__)
 # whoever's first keyworded request happens to land after a deploy or
 # a cold start. Runs in a thread so it never delays the app from
 # binding its port and coming up.
-threading.Thread(target=semantic.warm_up, daemon=True).start()
+#threading.Thread(target=semantic.warm_up, daemon=True).start()
 
 # Without this, a frontend served from a different origin (a local HTML
 # file, a different port, etc.) will have its requests blocked by the
