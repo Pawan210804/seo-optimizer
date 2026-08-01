@@ -113,6 +113,19 @@ def _get_similarity_model():
         return None
 
 
+def warm_up():
+    # Loads the sentence-transformers model right away instead of
+    # waiting for the first request that includes a keyword. Without
+    # this, whoever sends the FIRST keyworded request after a fresh
+    # deploy or a cold start pays the full ~90MB download + load cost
+    # inline, on their own request - which can easily blow past a
+    # server timeout and show up as a failed/empty response on their
+    # end. Meant to be called once, in a background thread, right
+    # after the Flask app starts, so the app can still bind its port
+    # immediately while this loads in parallel.
+    _get_similarity_model()
+
+
 def get_key_phrases_local(text):
     # Same idea as get_key_phrases() above, but using spaCy running
     # locally instead of calling Azure. Pulls out noun phrases
