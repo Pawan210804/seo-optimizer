@@ -150,7 +150,7 @@
 
     <div class="settings-row" id="settingsRow">
       <label for="apiBase">API base URL</label>
-      <input type="text" id="apiBase" value="http://localhost:8000">
+      <input type="text" id="apiBase" value="">
       <span style="font-size:11px;color:var(--text-faint);white-space:nowrap;">from `python app.py`</span>
     </div>
 
@@ -246,6 +246,17 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
+  // Auto-fill the API base field with the page's own address, so the
+  // dashboard works out of the box on any device when Flask is serving
+  // it (no more manually typing in a URL). If this file is instead
+  // opened directly from disk (file://), origin is empty/"null", so we
+  // fall back to localhost - the old default for local dev.
+  (function initApiBase(){
+    const field = document.getElementById('apiBase');
+    const origin = window.location.origin;
+    field.value = (origin && origin !== 'null') ? origin : 'http://localhost:8000';
+  })();
+
   const BLUE = '#2F6FEE';
   const GREEN = '#16A34A';
   const AMBER = '#D97706';
