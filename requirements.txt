@@ -1,0 +1,38 @@
+# --- Build tooling ---
+# Python 3.12 dropped distutils from the standard library, and some
+# packages in this chain (spaCy's build backend, a few of its own
+# dependencies) still assume setuptools is present to provide it.
+# Installing this explicitly avoids an intermittent "no module named
+# distutils" build failure on a fresh 3.12 image.
+setuptools==75.6.0
+
+# --- Web server ---
+flask==3.1.0
+flask-cors==5.0.0
+gunicorn==23.0.0
+
+# --- HTTP + HTML parsing (extractor.py, openrouter_seo.py, semantic.py) ---
+requests==2.32.3
+urllib3==2.2.3
+beautifulsoup4==4.12.3
+
+# --- Config (.env loading — gemini_seo.py, openrouter_seo.py, semantic.py) ---
+python-dotenv==1.0.1
+
+# --- Readability scoring (rules.py) ---
+textstat==0.7.4
+
+# --- Gemini AI recommendations (gemini_seo.py) ---
+google-genai==1.3.0
+
+# --- Semantic coverage + keyword suggestions (semantic.py, keywords.py) ---
+# spaCy: local noun-chunk/entity extraction, no internet needed after the
+# model is downloaded (Dockerfile runs `python -m spacy download en_core_web_sm`
+# at build time).
+spacy==3.8.2
+
+# sentence-transformers pulls in torch (CPU build) - this is the heaviest
+# dependency in the app by far. Kept here because this deployment target
+# (Cloud Run) has the memory headroom for it; drop this line (and the
+# warm_up() call in app.py) if you ever deploy to a 512MB-limited platform.
+sentence-transformers==3.3.1
